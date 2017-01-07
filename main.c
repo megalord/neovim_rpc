@@ -6,8 +6,8 @@
 
 #include "cmp.h"
 #include "rpc.h"
+#include "rpc_methods.h"
 #include "socket.h"
-#include "test.h"
 
 int main (int argc, char *argv[]) {
   if (argc != 2) {

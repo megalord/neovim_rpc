@@ -11,6 +11,8 @@
 #include "rpc.h"
 #include "socket.h"
 
+uint32_t req_id = 0;
+
 enum rpc_connection_method {
   STDIN_STDOUT, // for use with nvim's jobstart(_, {rpc: v:true})
   TCP_SOCKET, // NVIM_LISTEN_ADDRESS
@@ -42,20 +44,16 @@ void rpc_end () {
 }
 
 bool rpc_send (rpc_type t, char method[], int num_args) {
-  //if (cmp != NULL) {
-  //  return false;
-  //}
-
   if (!cmp_write_array(&cmp, 4)) {
-    //cmp_strerror(&cmp);
     return false;
   }
   if (!cmp_write_uint(&cmp, 0)) {
     return false;
   }
-  if (!cmp_write_uint(&cmp, 0)) {
+  if (!cmp_write_uint(&cmp, req_id)) {
     return false;
   }
+  req_id++;
   if (!cmp_write_str(&cmp, method, strlen(method))) {
     return false;
   }
