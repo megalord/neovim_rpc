@@ -1,16 +1,14 @@
-SRC = test.h main.c rpc.c cmp.c socket.c
-OBJ = main.o rpc.o cmp.o socket.o
+HEAD = test.h
+SRC = main.c rpc.c cmp.c socket.c
 PROG = test
 
-$(PROG): $(OBJ)
-				gcc $(OBJ) -o $(PROG)
-
-$(OBJ): $(SRC)
+$(PROG): $(SRC) $(HEAD)
+				gcc $(SRC) -o $(PROG)
 
 cmp.h:
 	curl -o cmp.h https://raw.githubusercontent.com/camgunz/cmp/master/cmp.h
 cmp.c: cmp.h
 	curl -o cmp.c https://raw.githubusercontent.com/camgunz/cmp/master/cmp.c
 
-test2: $(OBJ)
+test2: $(SRC)
 				gcc -g -Wall main.c rpc.c cmp.c socket.c -o test
