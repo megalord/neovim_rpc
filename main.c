@@ -1,10 +1,5 @@
 #include <stdio.h>
 
-// needed for cmp.h
-#include <stdint.h>
-#include <stdbool.h>
-
-#include "cmp.h"
 #include "rpc.h"
 #include "rpc_methods.h"
 #include "socket.h"
@@ -16,15 +11,14 @@ int main (int argc, char *argv[]) {
   }
   rpc_init_socket(argv[1]);
 
-  int a = 0;
-  if (!nvim_list_bufs(&a)) {
+  rpc_message result;
+  if (!nvim_list_bufs(&result)) {
     rpc_end();
     return 1;
   }
 
-  cmp_object_t cmp_obj;
-  while (cmp_read_object(&cmp, &cmp_obj)) {
-    print_cmp_obj(cmp_obj, *(int *) cmp.buf);
+  for (int i = 0; i < result.size; i++) {
+    printf("%02d\n", ((char *) result.data)[i]);
   }
 
   rpc_end();

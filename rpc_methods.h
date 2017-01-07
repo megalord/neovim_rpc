@@ -13,17 +13,17 @@ typedef int Window;
 typedef int Tabpage;
 #define NVIM_EXT_Tabpage 2
 
-bool nvim_buf_line_count (Buffer buffer, int64_t result) {
+bool nvim_buf_line_count (Buffer buffer, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_line_count", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Buffer, sizeof(buffer), &buffer)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char *result) {
+bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_lines", 4)) {
     return false;
   }
@@ -39,7 +39,7 @@ bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_
   if (!cmp_write_bool(&cmp, strict_indexing)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_buf_set_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char *replacement) {
@@ -135,24 +135,24 @@ bool nvim_buf_set_option (Buffer buffer, char *name, void *value, uint32_t size)
   return true;
 }
 
-bool nvim_buf_get_number (Buffer buffer, int64_t result) {
+bool nvim_buf_get_number (Buffer buffer, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_number", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Buffer, sizeof(buffer), &buffer)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_buf_get_name (Buffer buffer, char *result) {
+bool nvim_buf_get_name (Buffer buffer, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_name", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Buffer, sizeof(buffer), &buffer)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_buf_set_name (Buffer buffer, char *name) {
@@ -168,17 +168,17 @@ bool nvim_buf_set_name (Buffer buffer, char *name) {
   return true;
 }
 
-bool nvim_buf_is_valid (Buffer buffer, bool result) {
+bool nvim_buf_is_valid (Buffer buffer, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_is_valid", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Buffer, sizeof(buffer), &buffer)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_buf_get_mark (Buffer buffer, char *name, int64_t *result) {
+bool nvim_buf_get_mark (Buffer buffer, char *name, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_mark", 2)) {
     return false;
   }
@@ -188,10 +188,10 @@ bool nvim_buf_get_mark (Buffer buffer, char *name, int64_t *result) {
   if (!cmp_write_str(&cmp, name, strlen(name))) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_buf_add_highlight (Buffer buffer, int64_t src_id, char *hl_group, int64_t line, int64_t col_start, int64_t col_end, int64_t result) {
+bool nvim_buf_add_highlight (Buffer buffer, int64_t src_id, char *hl_group, int64_t line, int64_t col_start, int64_t col_end, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_add_highlight", 6)) {
     return false;
   }
@@ -213,7 +213,7 @@ bool nvim_buf_add_highlight (Buffer buffer, int64_t src_id, char *hl_group, int6
   if (!cmp_write_integer(&cmp, col_end)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_buf_clear_highlight (Buffer buffer, int64_t src_id, int64_t line_start, int64_t line_end) {
@@ -235,14 +235,14 @@ bool nvim_buf_clear_highlight (Buffer buffer, int64_t src_id, int64_t line_start
   return true;
 }
 
-bool nvim_tabpage_list_wins (Tabpage tabpage, Window *result) {
+bool nvim_tabpage_list_wins (Tabpage tabpage, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_list_wins", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Tabpage, sizeof(tabpage), &tabpage)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_tabpage_get_var (Tabpage tabpage, char *name) {
@@ -287,34 +287,34 @@ bool nvim_tabpage_del_var (Tabpage tabpage, char *name) {
   return true;
 }
 
-bool nvim_tabpage_get_win (Tabpage tabpage, Window result) {
+bool nvim_tabpage_get_win (Tabpage tabpage, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_get_win", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Tabpage, sizeof(tabpage), &tabpage)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_tabpage_get_number (Tabpage tabpage, int64_t result) {
+bool nvim_tabpage_get_number (Tabpage tabpage, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_get_number", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Tabpage, sizeof(tabpage), &tabpage)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_tabpage_is_valid (Tabpage tabpage, bool result) {
+bool nvim_tabpage_is_valid (Tabpage tabpage, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_is_valid", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Tabpage, sizeof(tabpage), &tabpage)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_ui_attach (int64_t width, int64_t height, void *options, uint32_t size) {
@@ -392,17 +392,17 @@ bool nvim_feedkeys (char *keys, char *mode, bool escape_csi) {
   return true;
 }
 
-bool nvim_input (char *keys, int64_t result) {
+bool nvim_input (char *keys, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_input", 1)) {
     return false;
   }
   if (!cmp_write_str(&cmp, keys, strlen(keys))) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special, char *result) {
+bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_replace_termcodes", 4)) {
     return false;
   }
@@ -418,17 +418,17 @@ bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special
   if (!cmp_write_bool(&cmp, special)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_command_output (char *str, char *result) {
+bool nvim_command_output (char *str, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_command_output", 1)) {
     return false;
   }
   if (!cmp_write_str(&cmp, str, strlen(str))) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_eval (char *expr) {
@@ -454,21 +454,21 @@ bool nvim_call_function (char *fname, void *args, uint32_t size) {
   return true;
 }
 
-bool nvim_strwidth (char *str, int64_t result) {
+bool nvim_strwidth (char *str, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_strwidth", 1)) {
     return false;
   }
   if (!cmp_write_str(&cmp, str, strlen(str))) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_list_runtime_paths (char *result) {
+bool nvim_list_runtime_paths (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_runtime_paths", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_set_current_dir (char *dir) {
@@ -481,11 +481,11 @@ bool nvim_set_current_dir (char *dir) {
   return true;
 }
 
-bool nvim_get_current_line (char *result) {
+bool nvim_get_current_line (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_current_line", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_set_current_line (char *line) {
@@ -601,18 +601,18 @@ bool nvim_err_writeln (char *str) {
   return true;
 }
 
-bool nvim_list_bufs (Buffer *result) {
+bool nvim_list_bufs (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_bufs", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_get_current_buf (Buffer result) {
+bool nvim_get_current_buf (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_current_buf", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_set_current_buf (Buffer buffer) {
@@ -625,18 +625,18 @@ bool nvim_set_current_buf (Buffer buffer) {
   return true;
 }
 
-bool nvim_list_wins (Window *result) {
+bool nvim_list_wins (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_wins", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_get_current_win (Window result) {
+bool nvim_get_current_win (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_current_win", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_set_current_win (Window window) {
@@ -649,18 +649,18 @@ bool nvim_set_current_win (Window window) {
   return true;
 }
 
-bool nvim_list_tabpages (Tabpage *result) {
+bool nvim_list_tabpages (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_tabpages", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_get_current_tabpage (Tabpage result) {
+bool nvim_get_current_tabpage (rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_current_tabpage", 0)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_set_current_tabpage (Tabpage tabpage) {
@@ -693,14 +693,14 @@ bool nvim_unsubscribe (char *event) {
   return true;
 }
 
-bool nvim_get_color_by_name (char *name, int64_t result) {
+bool nvim_get_color_by_name (char *name, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_color_by_name", 1)) {
     return false;
   }
   if (!cmp_write_str(&cmp, name, strlen(name))) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_get_color_map () {
@@ -727,24 +727,24 @@ bool nvim_call_atomic (void *calls, uint32_t size) {
   return true;
 }
 
-bool nvim_win_get_buf (Window window, Buffer result) {
+bool nvim_win_get_buf (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_buf", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_win_get_cursor (Window window, int64_t *result) {
+bool nvim_win_get_cursor (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_cursor", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_win_set_cursor (Window window, int64_t *pos) {
@@ -760,14 +760,14 @@ bool nvim_win_set_cursor (Window window, int64_t *pos) {
   return true;
 }
 
-bool nvim_win_get_height (Window window, int64_t result) {
+bool nvim_win_get_height (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_height", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_win_set_height (Window window, int64_t height) {
@@ -783,14 +783,14 @@ bool nvim_win_set_height (Window window, int64_t height) {
   return true;
 }
 
-bool nvim_win_get_width (Window window, int64_t result) {
+bool nvim_win_get_width (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_width", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
 bool nvim_win_set_width (Window window, int64_t width) {
@@ -877,43 +877,43 @@ bool nvim_win_set_option (Window window, char *name, void *value, uint32_t size)
   return true;
 }
 
-bool nvim_win_get_position (Window window, int64_t *result) {
+bool nvim_win_get_position (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_position", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_win_get_tabpage (Window window, Tabpage result) {
+bool nvim_win_get_tabpage (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_tabpage", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_win_get_number (Window window, int64_t result) {
+bool nvim_win_get_number (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_number", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 
-bool nvim_win_is_valid (Window window, bool result) {
+bool nvim_win_is_valid (Window window, rpc_message *response) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_is_valid", 1)) {
     return false;
   }
   if (!cmp_write_ext(&cmp, NVIM_EXT_Window, sizeof(window), &window)) {
     return false;
   }
-  return true;
+  return wait_for_response(response);
 }
 

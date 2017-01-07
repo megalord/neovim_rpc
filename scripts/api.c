@@ -184,14 +184,20 @@ void print_function (func_t *fn_ptr) {
     if (fn.num_params > 0) {
       printf(", ");
     }
-    print_param(&fn.ret);
+    //print_param(&fn.ret);
+    printf("rpc_message *response");
   }
   printf(") {\n");
   printf("  if (!rpc_send(NVIM_RPC_REQUEST, \"%s\", %i)) {\n    return false;\n  }\n", fn.name, fn.num_params);
   for (int i = 0; i < fn.num_params; i++) {
     printf("  if (!%s) {\n    return false;\n  }\n", fn.params[i].cmp_fn);
   }
-  printf("  return true;\n}\n\n");
+  if (strcmp(fn.ret.type, "void") == 0) {
+    printf("  return true;\n");
+  } else {
+    printf("  return wait_for_response(response);\n");
+  }
+  printf("}\n\n");
 }
 
 void read_function (cmp_ctx_t *cmp, func_t *fn) {
