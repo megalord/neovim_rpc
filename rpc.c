@@ -3,6 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 
+// needed for cmp.h
+#include <stdint.h>
+#include <stdbool.h>
+
 #include "cmp.h"
 #include "rpc.h"
 #include "socket.h"

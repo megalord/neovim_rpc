@@ -7,5 +7,10 @@ $(PROG): $(OBJ)
 
 $(OBJ): $(SRC)
 
+cmp.h:
+	curl -o cmp.h https://raw.githubusercontent.com/camgunz/cmp/master/cmp.h
+cmp.c: cmp.h
+	curl -o cmp.c https://raw.githubusercontent.com/camgunz/cmp/master/cmp.c
+
 test2: $(OBJ)
 				gcc -g -Wall main.c rpc.c cmp.c socket.c -o test
