@@ -3,7 +3,7 @@ SRC = main.c rpc.c cmp.c socket.c
 PROG = test
 
 $(PROG): $(SRC) $(HEAD)
-	gcc $(SRC) -o $(PROG)
+	gcc -Werror $(SRC) -o $(PROG)
 
 cmp.h:
 	curl -o cmp.h https://raw.githubusercontent.com/camgunz/cmp/master/cmp.h

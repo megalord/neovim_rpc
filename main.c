@@ -11,16 +11,18 @@ int main (int argc, char *argv[]) {
   }
   rpc_init_socket(argv[1]);
 
-  rpc_message result;
-  if (!nvim_list_bufs(&result)) {
+  uint32_t num_bufs;
+  Buffer *bufs;
+  if (!nvim_list_bufs(&bufs, &num_bufs)) {
     rpc_end();
     return 1;
   }
 
-  for (int i = 0; i < result.size; i++) {
-    printf("%02d\n", ((char *) result.data)[i]);
+  for (int i = 0; i < num_bufs; i++) {
+    printf("%02d\n", ((char *) bufs)[i]);
   }
 
+  free(bufs);
   rpc_end();
   return 0;
 }

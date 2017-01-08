@@ -37,5 +37,7 @@ bool rpc_send (rpc_type t, char method[], int num_args);
 void rpc_end (void);
 bool wait_for_response(rpc_message *msg);
 bool read_message (rpc_message *msg);
+bool read_message_headers (void);
+bool read_string (char *str);
 
 #endif

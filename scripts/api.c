@@ -13,6 +13,7 @@ typedef struct {
   char name[20];
   char type[20];
   bool is_ptr;
+  bool is_arr;
   char cmp_fn[80];
 } param_t;
 
@@ -67,12 +68,15 @@ void read_version (cmp_ctx_t *cmp) {
 
 void print_param (param_t *param) {
   printf("%s ", param->type);
+  if (param->is_arr) {
+    printf("*");
+  }
   if (param->is_ptr) {
     printf("*");
   }
   printf("%s", param->name);
-  if (param->is_ptr && strcmp(param->type, "void") == 0) {
-    printf(", uint32_t size");
+  if (param->is_arr) {
+    printf(", uint32_t *size");
   }
 }
 
@@ -93,8 +97,9 @@ void translate_param (param_t *param) {
     snprintf(param->cmp_fn, 80, "cmp_write_bool(&cmp, %s)", param->name);
   } else if (strcmp(type, "Array") == 0) {
     strcpy(param->type, "void");
+    param->is_arr = true;
     param->is_ptr = true;
-    snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, size)");
+    snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, *size)");
   } else if (strncmp(type, "ArrayOf", 7) == 0) {
     // "return_type": "ArrayOf(Integer, 2)",
     char new_type[20];
@@ -109,6 +114,7 @@ void translate_param (param_t *param) {
       param->type[c - new_type] = '\0';
       strcpy(size, c + 2);
     }
+    param->is_arr = true;
     param->is_ptr = true;
     snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, %s)", size);
 
@@ -152,10 +158,9 @@ void read_parameters (cmp_ctx_t *cmp, param_t **params, uint32_t *num_params) {
       error_and_exit(cmp_strerror(cmp));
     }
     type_size = 20;
-    param_t p;
+    param_t p = { .is_arr = false, .is_ptr = false };
     strcpy(p.name, name);
     strcpy(p.type, type);
-    p.is_ptr = false;
     translate_param(&p);
     (*params)[i] = p;
   }
@@ -169,6 +174,34 @@ char[] translate_type (char type[]) {
   }
 }
 */
+
+void print_result_collector (param_t *p) {
+  char star[2];
+  char p_inc[40];
+  printf("  if (!read_message_headers()) {\n    return false;\n  }\n");
+  if (p->is_arr) {
+    printf("  if (!cmp_read_array(&cmp, size)) {\n    return false;\n  }\n");
+    printf("  *result = malloc(*size * sizeof(%s));\n", p->type);
+    printf("  for (int i = 0; i < *size; i++) {\n");
+    strcpy(star, "*");
+    sprintf(p_inc, " + i * sizeof(%s)", p->type);
+  } else {
+    strcpy(star, "");
+    strcpy(p_inc, "");
+  }
+  if (strcmp(p->type, "char") == 0) {
+    printf("  if (!read_string(%sresult%s)) {\n    return false;\n  }\n", star, p_inc);
+  } else if (strcmp(p->type, "int64_t") == 0) {
+    printf("  if (!cmp_read_integer(&cmp, %sresult%s)) {\n    return false;\n  }\n", star, p_inc);
+  } else if (strcmp(p->type, "Buffer") == 0) {
+    printf("  int8_t ext_type;\n  uint32_t ext_size;\n");
+    printf("  if (!cmp_read_ext(&cmp, &ext_type, &ext_size, %sresult%s)) {\n    return false;\n  }\n", star, p_inc);
+  }
+  if (p->is_arr) {
+    printf("  }\n");
+  }
+  printf("  return true;\n");
+}
 
 void print_function (func_t *fn_ptr) {
   func_t fn = *fn_ptr;
@@ -184,18 +217,22 @@ void print_function (func_t *fn_ptr) {
     if (fn.num_params > 0) {
       printf(", ");
     }
-    //print_param(&fn.ret);
-    printf("rpc_message *response");
+    bool is_ptr = fn.ret.is_ptr;
+    fn.ret.is_ptr = true;
+    print_param(&fn.ret);
+    fn.ret.is_ptr = is_ptr;
+    //printf("rpc_message *response");
   }
   printf(") {\n");
   printf("  if (!rpc_send(NVIM_RPC_REQUEST, \"%s\", %i)) {\n    return false;\n  }\n", fn.name, fn.num_params);
   for (int i = 0; i < fn.num_params; i++) {
     printf("  if (!%s) {\n    return false;\n  }\n", fn.params[i].cmp_fn);
   }
-  if (strcmp(fn.ret.type, "void") == 0) {
-    printf("  return true;\n");
+  if (strcmp(fn.ret.type, "void") != 0) { // TODO: will void still send response/
+    print_result_collector(&fn.ret);
+    //printf("  return wait_for_response(response);\n");
   } else {
-    printf("  return wait_for_response(response);\n");
+    printf("  return true;\n");
   }
   printf("}\n\n");
 }
@@ -329,7 +366,7 @@ void read_types (cmp_ctx_t *cmp) {
       }
     }
 
-    printf("typedef int %s;\n", key);
+    printf("typedef uint8_t %s;\n", key);
     printf("#define NVIM_EXT_%s %i\n", key, id);
   }
   printf("\n");
@@ -377,6 +414,7 @@ int main (void) {
 
   printf("#include <stdbool.h>\n");
   printf("#include <stdint.h>\n");
+  printf("#include <stdlib.h>\n");
   printf("#include <string.h>\n");
   printf("#include \"cmp.h\"\n");
   printf("#include \"rpc.h\"\n");

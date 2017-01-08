@@ -62,6 +62,38 @@ bool rpc_send (rpc_type t, char method[], int num_args) {
   return true;
 }
 
+bool read_message_headers () {
+  uint8_t id, type;
+  uint32_t array_size;
+  if (!cmp_read_array(&cmp, &array_size)) {
+    printf("expected array\n");
+    return false;
+  }
+
+  if (array_size != 3 && array_size != 4) {
+    printf("array too small: %i\n", array_size);
+    return false;
+  }
+
+  if (!cmp_read_pfix(&cmp, &type)) {
+    printf("expected pfix\n");
+    return false;
+  }
+
+  if (!cmp_read_pfix(&cmp, &id)) {
+    printf("expected pfix\n");
+    return false;
+  }
+
+  if (!cmp_read_nil(&cmp)) {
+    // TODO: set result as an error
+    printf("expected nil\n");
+    return false;
+  }
+
+  return true;
+}
+
 bool wait_for_response (rpc_message *msg) {
   uint8_t num_read = 0;
   while (true) {
@@ -81,7 +113,7 @@ bool wait_for_response (rpc_message *msg) {
 
 bool read_message (rpc_message *msg) {
   uint8_t type;
-  uint32_t array_size, message_size;
+  uint32_t array_size;
   if (!cmp_read_array(&cmp, &array_size)) {
     printf("expected array\n");
     return false;
@@ -135,5 +167,17 @@ bool read_message (rpc_message *msg) {
     }
   }
 
+  return true;
+}
+
+bool read_string (char *result) {
+  uint32_t str_size;
+  if (!cmp_read_str_size(&cmp, &str_size)) {
+    return false;
+  }
+  result = malloc(str_size * sizeof(char));
+  if (!cmp.read(&cmp, result, str_size)) {
+    return false;
+  }
   return true;
 }
