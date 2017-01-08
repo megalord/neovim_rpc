@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../cmp.c"
+#include "cmp.c"
 
 bool file_reader (cmp_ctx_t *ctx, void *data, size_t limit) {
   return fread(data, sizeof(uint8_t), limit, ctx->buf) == (limit * sizeof(uint8_t));
@@ -274,7 +274,6 @@ void read_function (cmp_ctx_t *cmp, func_t *fn) {
       }
     }
   }
-  //free(fn.params);
 }
 
 //ArrayOf(Integer, 2) nvim_win_get_position (Window window) {
@@ -402,7 +401,7 @@ void read_map (cmp_ctx_t *cmp, cmp_object_t cmp_obj) {
     if (!fns[i].deprecated) {
       print_function(&fns[i]);
     }
-    free(fn.params);
+    free(fns[i].params);
   }
   free(fns);
 }

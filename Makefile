@@ -12,3 +12,6 @@ lib/cmp.c: lib/cmp.h
 
 test2: $(SRC)
 	gcc -iquote lib -iquote src -g -Wall test.c src/rpc.c lib/cmp.c src/socket.c -o test
+
+rpc_methods:
+	gcc -iquote lib scripts/api.c -o gen_api && ./gen_api > src/rpc_methods.h && rm gen_api
