@@ -402,7 +402,9 @@ void read_map (cmp_ctx_t *cmp, cmp_object_t cmp_obj) {
     if (!fns[i].deprecated) {
       print_function(&fns[i]);
     }
+    free(fn.params);
   }
+  free(fns);
 }
 
 int main (void) {
