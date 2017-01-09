@@ -170,13 +170,13 @@ bool read_message (rpc_message *msg) {
   return true;
 }
 
-bool read_string (char *result) {
+bool read_string (char **result) {
   uint32_t str_size;
   if (!cmp_read_str_size(&cmp, &str_size)) {
     return false;
   }
-  result = malloc(str_size * sizeof(char));
-  if (!cmp.read(&cmp, result, str_size)) {
+  *result = malloc(str_size * sizeof(char));
+  if (!cmp.read(&cmp, *result, str_size)) {
     return false;
   }
   return true;

@@ -12,8 +12,9 @@ bool file_reader (cmp_ctx_t *ctx, void *data, size_t limit) {
 typedef struct {
   char name[20];
   char type[20];
-  bool is_ptr;
   bool is_arr;
+  bool is_out;
+  bool is_ptr;
   char cmp_fn[80];
 } param_t;
 
@@ -43,7 +44,7 @@ void read_version (cmp_ctx_t *cmp) {
   for (int i = 0; i < map_size; i++) {
     uint32_t key_size = 20;
     char key[key_size];
-    if(!cmp_read_str(cmp, key, &key_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, key, &key_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
 
@@ -71,19 +72,82 @@ void print_param (param_t *param) {
   if (param->is_arr) {
     printf("*");
   }
+  if (param->is_out) {
+    printf("*");
+  }
   if (param->is_ptr) {
     printf("*");
   }
   printf("%s", param->name);
+
+  // array params have an implicit size param
   if (param->is_arr) {
-    printf(", uint32_t *size");
+    printf(", uint32_t ");
+    if (param->is_out) {
+      printf("*");
+    }
+    printf("%s_size", param->name);
   }
+}
+
+void print_result_collector (param_t *p) {
+  char result[40] = "";
+  printf("  if (!read_message_headers()) {\n    return false;\n  }\n");
+  strcat(result, p->name);
+  if (p->is_arr) {
+    printf("  if (!cmp_read_array(&cmp, %s_size)) {\n    return false;\n  }\n", p->name);
+    printf("  *%s = malloc(*%s_size * sizeof(%s *));\n", result, p->name, p->type);
+    printf("  for (int i = 0; i < *%s_size; i++) {\n", p->name);
+    char tmp[40];
+    strcpy(tmp, result);
+    sprintf(result, "&(*%s)[i]", tmp);
+  }
+  if (strcmp(p->type, "char") == 0) {
+    printf("  if (!read_string(%s)) {\n    return false;\n  }\n", result);
+  } else if (strcmp(p->type, "int64_t") == 0) {
+    printf("  if (!cmp_read_integer(&cmp, %s)) {\n    return false;\n  }\n", result);
+  } else if (strcmp(p->type, "Buffer") == 0) {
+    printf("  int8_t ext_type;\n  uint32_t ext_size;\n");
+    printf("  if (!cmp_read_ext(&cmp, &ext_type, &ext_size, %s)) {\n    return false;\n  }\n", result);
+  }
+  if (p->is_arr) {
+    printf("  }\n");
+  }
+  printf("  return true;\n");
+}
+
+void print_function (func_t *fn) {
+  printf("bool %s (", fn->name);
+  if (fn->num_params > 0) {
+    print_param(&fn->params[0]);
+    for (int i = 1; i < fn->num_params; i++) {
+      printf(", ");
+      print_param(&fn->params[i]);
+    }
+  }
+  if (strcmp(fn->ret.type, "void") != 0 || fn->ret.is_ptr) {
+    if (fn->num_params > 0) {
+      printf(", ");
+    }
+    print_param(&fn->ret);
+  }
+  printf(") {\n");
+  printf("  if (!rpc_send(NVIM_RPC_REQUEST, \"%s\", %i)) {\n    return false;\n  }\n", fn->name, fn->num_params);
+  for (int i = 0; i < fn->num_params; i++) {
+    printf("  if (!%s) {\n    return false;\n  }\n", fn->params[i].cmp_fn);
+    // TODO: if (fn->params[i].is_arr) {
+  }
+  if (strcmp(fn->ret.type, "void") != 0) { // TODO: will void still send response?
+    print_result_collector(&fn->ret);
+  } else {
+    printf("  return true;\n");
+  }
+  printf("}\n\n");
 }
 
 void translate_param (param_t *param) {
   // See https://github.com/neovim/neovim/blob/master/src/nvim/api/private/defs.h
-  // TODO: fix array writes
-  char type[20];
+  char type[30];
   strcpy(type, param->type);
   if (strcmp(type, "String") == 0) {
     strcpy(param->type, "char");
@@ -98,31 +162,34 @@ void translate_param (param_t *param) {
   } else if (strcmp(type, "Array") == 0) {
     strcpy(param->type, "void");
     param->is_arr = true;
-    param->is_ptr = true;
-    snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, *size)");
+    snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, %s_size)", param->name);
   } else if (strncmp(type, "ArrayOf", 7) == 0) {
-    // "return_type": "ArrayOf(Integer, 2)",
-    char new_type[20];
+    // e.g. ArrayOf(Integer, 2)
+    char sub_type[20];
     char size[20];
-    strncpy(new_type, type + 8, strlen(type) - 9);
-    char *c = strchr(new_type, ',');
+    strncpy(sub_type, type + 8, strlen(type) - 9);
+    sub_type[strlen(type) - 9] = '\0';
+    char *c = strchr(sub_type, ',');
     if (c == NULL) {
-      strcpy(param->type, new_type);
-      snprintf(size, sizeof(size), "sizeof(%s)", param->name);
+      strcpy(param->type, sub_type);
+      sprintf(size, "%s_size", param->name);
     } else {
-      strncpy(param->type, new_type, c - new_type);
-      param->type[c - new_type] = '\0';
+      // TODO: add struct field to disable implicit size param
+      strncpy(param->type, sub_type, c - sub_type);
+      param->type[c - sub_type] = '\0';
       strcpy(size, c + 2);
     }
     param->is_arr = true;
-    param->is_ptr = true;
     snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, %s)", size);
 
-    param_t p2;
-    strcpy(p2.name, "tmp");
-    strcpy(p2.type, param->type);
-    translate_param(&p2);
-    strcpy(param->type, p2.type);
+    // Translate the type of the elements
+    param_t p;
+    strcpy(p.name, "tmp");
+    strcpy(p.type, param->type);
+    p.is_ptr = false;
+    translate_param(&p);
+    strcpy(param->type, p.type);
+    param->is_ptr = p.is_ptr;
   } else if (strcmp(type, "Buffer") == 0 || strcmp(type, "Tabpage") == 0 || strcmp(type, "Window") == 0) {
     snprintf(param->cmp_fn, 80, "cmp_write_ext(&cmp, NVIM_EXT_%s, sizeof(%s), &%s)", type, param->name, param->name);
   } else {
@@ -135,106 +202,28 @@ void translate_param (param_t *param) {
 }
 
 void read_parameters (cmp_ctx_t *cmp, param_t **params, uint32_t *num_params) {
-  cmp_object_t cmp_obj;
-  uint32_t not_used;
-  uint32_t name_size = 20;
-  char name[name_size];
-  uint32_t type_size = 20;
-  char type[type_size];
-
+  uint32_t not_used, name_size, type_size;
   if (!cmp_read_array(cmp, num_params)) {
     error_and_exit(cmp_strerror(cmp));
   }
   *params = malloc(*num_params * sizeof(param_t));
   for (int i = 0; i < *num_params; i++) {
+    name_size = sizeof((*params)[i].name);
+    type_size = sizeof((*params)[i].type);
     if (!cmp_read_array(cmp, &not_used)) {
       error_and_exit(cmp_strerror(cmp));
     }
-    if (!cmp_read_str(cmp, type, &name_size)) {
+    if (!cmp_read_str(cmp, (*params)[i].type, &name_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
-    name_size = 20;
-    if (!cmp_read_str(cmp, name, &type_size)) {
+    if (!cmp_read_str(cmp, (*params)[i].name, &type_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
-    type_size = 20;
-    param_t p = { .is_arr = false, .is_ptr = false };
-    strcpy(p.name, name);
-    strcpy(p.type, type);
-    translate_param(&p);
-    (*params)[i] = p;
+    (*params)[i].is_arr = false;
+    (*params)[i].is_out = false;
+    (*params)[i].is_ptr = false;
+    translate_param(&(*params)[i]);
   }
-}
-
-/*
-char[] translate_type (char type[]) {
-  if (strcmp(type, "Window") == 0) {
-    return { .cmp = "cmp_write_ext(cmp, 0, size, data)"  }
-  } else if (strcmp(type, "Object") == 0) {
-  }
-}
-*/
-
-void print_result_collector (param_t *p) {
-  char star[2];
-  char p_inc[40];
-  printf("  if (!read_message_headers()) {\n    return false;\n  }\n");
-  if (p->is_arr) {
-    printf("  if (!cmp_read_array(&cmp, size)) {\n    return false;\n  }\n");
-    printf("  *result = malloc(*size * sizeof(%s));\n", p->type);
-    printf("  for (int i = 0; i < *size; i++) {\n");
-    strcpy(star, "*");
-    sprintf(p_inc, " + i * sizeof(%s)", p->type);
-  } else {
-    strcpy(star, "");
-    strcpy(p_inc, "");
-  }
-  if (strcmp(p->type, "char") == 0) {
-    printf("  if (!read_string(%sresult%s)) {\n    return false;\n  }\n", star, p_inc);
-  } else if (strcmp(p->type, "int64_t") == 0) {
-    printf("  if (!cmp_read_integer(&cmp, %sresult%s)) {\n    return false;\n  }\n", star, p_inc);
-  } else if (strcmp(p->type, "Buffer") == 0) {
-    printf("  int8_t ext_type;\n  uint32_t ext_size;\n");
-    printf("  if (!cmp_read_ext(&cmp, &ext_type, &ext_size, %sresult%s)) {\n    return false;\n  }\n", star, p_inc);
-  }
-  if (p->is_arr) {
-    printf("  }\n");
-  }
-  printf("  return true;\n");
-}
-
-void print_function (func_t *fn_ptr) {
-  func_t fn = *fn_ptr;
-  printf("bool %s (", fn.name);
-  if (fn.num_params > 0) {
-    print_param(&fn.params[0]);
-    for (int i = 1; i < fn.num_params; i++) {
-      printf(", ");
-      print_param(&fn.params[i]);
-    }
-  }
-  if (strcmp(fn.ret.type, "void") != 0) {
-    if (fn.num_params > 0) {
-      printf(", ");
-    }
-    bool is_ptr = fn.ret.is_ptr;
-    fn.ret.is_ptr = true;
-    print_param(&fn.ret);
-    fn.ret.is_ptr = is_ptr;
-    //printf("rpc_message *response");
-  }
-  printf(") {\n");
-  printf("  if (!rpc_send(NVIM_RPC_REQUEST, \"%s\", %i)) {\n    return false;\n  }\n", fn.name, fn.num_params);
-  for (int i = 0; i < fn.num_params; i++) {
-    printf("  if (!%s) {\n    return false;\n  }\n", fn.params[i].cmp_fn);
-  }
-  if (strcmp(fn.ret.type, "void") != 0) { // TODO: will void still send response/
-    print_result_collector(&fn.ret);
-    //printf("  return wait_for_response(response);\n");
-  } else {
-    printf("  return true;\n");
-  }
-  printf("}\n\n");
 }
 
 void read_function (cmp_ctx_t *cmp, func_t *fn) {
@@ -248,7 +237,7 @@ void read_function (cmp_ctx_t *cmp, func_t *fn) {
   for (int i = 0; i < map_size; i++) {
     uint32_t key_size = 20;
     char key[key_size];
-    if(!cmp_read_str(cmp, key, &key_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, key, &key_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
 
@@ -260,6 +249,7 @@ void read_function (cmp_ctx_t *cmp, func_t *fn) {
       if (!cmp_read_str(cmp, fn->ret.type, &ret_type_size)) {
         error_and_exit(cmp_strerror(cmp));
       }
+      fn->ret.is_out = true;
       strcpy(fn->ret.name, "result");
       translate_param(&fn->ret);
     } else if (strcmp(key, "parameters") == 0) {
@@ -300,7 +290,7 @@ void read_error_types (cmp_ctx_t *cmp) {
   char id_key[id_size];
   uint8_t id;
   for (int i = 0; i < map_size; i++) {
-    if(!cmp_read_str(cmp, key, &key_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, key, &key_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
     key_size = 12;
@@ -310,7 +300,7 @@ void read_error_types (cmp_ctx_t *cmp) {
       error_and_exit(cmp_strerror(cmp));
     }
 
-    if(!cmp_read_str(cmp, id_key, &id_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, id_key, &id_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
     id_size = 10;
@@ -337,7 +327,7 @@ void read_types (cmp_ctx_t *cmp) {
 
   uint8_t id;
   for (int i = 0; i < map_size; i++) {
-    if(!cmp_read_str(cmp, key, &key_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, key, &key_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
     key_size = 12;
@@ -348,7 +338,7 @@ void read_types (cmp_ctx_t *cmp) {
     }
 
     for (int j = 0; j < sub_map_size; j++) {
-      if(!cmp_read_str(cmp, sub_key, &sub_key_size)) { // TODO: wrap this
+      if(!cmp_read_str(cmp, sub_key, &sub_key_size)) {
         error_and_exit(cmp_strerror(cmp));
       }
       sub_key_size = 20;
@@ -358,7 +348,7 @@ void read_types (cmp_ctx_t *cmp) {
           error_and_exit(cmp_strerror(cmp));
         }
       } else {
-        if(!cmp_read_str(cmp, prefix, &prefix_size)) { // TODO: wrap this
+        if(!cmp_read_str(cmp, prefix, &prefix_size)) {
           error_and_exit(cmp_strerror(cmp));
         }
         prefix_size = 14;
@@ -378,7 +368,7 @@ void read_map (cmp_ctx_t *cmp, cmp_object_t cmp_obj) {
   func_t *fns;
   char key[key_size];
   for (int i = 0; i < map_size; i++) {
-    if(!cmp_read_str(cmp, key, &key_size)) { // TODO: wrap this
+    if(!cmp_read_str(cmp, key, &key_size)) {
       error_and_exit(cmp_strerror(cmp));
     }
     key_size = 12;

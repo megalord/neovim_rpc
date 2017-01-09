@@ -30,7 +30,7 @@ bool nvim_buf_line_count (Buffer buffer, int64_t *result) {
   return true;
 }
 
-bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char **result, uint32_t *size) {
+bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char ***result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_lines", 4)) {
     return false;
   }
@@ -49,19 +49,19 @@ bool nvim_buf_get_lines (Buffer buffer, int64_t start, int64_t end, bool strict_
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(char));
-  for (int i = 0; i < *size; i++) {
-  if (!read_string(*result + i * sizeof(char))) {
+  *result = malloc(*result_size * sizeof(char *));
+  for (int i = 0; i < *result_size; i++) {
+  if (!read_string(&(*result)[i])) {
     return false;
   }
   }
   return true;
 }
 
-bool nvim_buf_set_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char **replacement, uint32_t *size) {
+bool nvim_buf_set_lines (Buffer buffer, int64_t start, int64_t end, bool strict_indexing, char **replacement, uint32_t replacement_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_set_lines", 5)) {
     return false;
   }
@@ -77,13 +77,13 @@ bool nvim_buf_set_lines (Buffer buffer, int64_t start, int64_t end, bool strict_
   if (!cmp_write_bool(&cmp, strict_indexing)) {
     return false;
   }
-  if (!cmp_write_array(&cmp, sizeof(replacement))) {
+  if (!cmp_write_array(&cmp, replacement_size)) {
     return false;
   }
   return true;
 }
 
-bool nvim_buf_get_var (Buffer buffer, char *name) {
+bool nvim_buf_get_var (Buffer buffer, char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_var", 2)) {
     return false;
   }
@@ -125,7 +125,7 @@ bool nvim_buf_del_var (Buffer buffer, char *name) {
   return true;
 }
 
-bool nvim_buf_get_option (Buffer buffer, char *name) {
+bool nvim_buf_get_option (Buffer buffer, char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_option", 2)) {
     return false;
   }
@@ -170,7 +170,7 @@ bool nvim_buf_get_number (Buffer buffer, int64_t *result) {
   return true;
 }
 
-bool nvim_buf_get_name (Buffer buffer, char *result) {
+bool nvim_buf_get_name (Buffer buffer, char **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_name", 1)) {
     return false;
   }
@@ -212,7 +212,7 @@ bool nvim_buf_is_valid (Buffer buffer, bool *result) {
   return true;
 }
 
-bool nvim_buf_get_mark (Buffer buffer, char *name, int64_t **result, uint32_t *size) {
+bool nvim_buf_get_mark (Buffer buffer, char *name, int64_t **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_buf_get_mark", 2)) {
     return false;
   }
@@ -225,12 +225,12 @@ bool nvim_buf_get_mark (Buffer buffer, char *name, int64_t **result, uint32_t *s
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(int64_t));
-  for (int i = 0; i < *size; i++) {
-  if (!cmp_read_integer(&cmp, *result + i * sizeof(int64_t))) {
+  *result = malloc(*result_size * sizeof(int64_t *));
+  for (int i = 0; i < *result_size; i++) {
+  if (!cmp_read_integer(&cmp, &(*result)[i])) {
     return false;
   }
   }
@@ -287,7 +287,7 @@ bool nvim_buf_clear_highlight (Buffer buffer, int64_t src_id, int64_t line_start
   return true;
 }
 
-bool nvim_tabpage_list_wins (Tabpage tabpage, Window **result, uint32_t *size) {
+bool nvim_tabpage_list_wins (Tabpage tabpage, Window **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_list_wins", 1)) {
     return false;
   }
@@ -297,16 +297,16 @@ bool nvim_tabpage_list_wins (Tabpage tabpage, Window **result, uint32_t *size) {
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(Window));
-  for (int i = 0; i < *size; i++) {
+  *result = malloc(*result_size * sizeof(Window *));
+  for (int i = 0; i < *result_size; i++) {
   }
   return true;
 }
 
-bool nvim_tabpage_get_var (Tabpage tabpage, char *name) {
+bool nvim_tabpage_get_var (Tabpage tabpage, char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_tabpage_get_var", 2)) {
     return false;
   }
@@ -481,7 +481,7 @@ bool nvim_input (char *keys, int64_t *result) {
   return true;
 }
 
-bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special, char *result) {
+bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special, char **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_replace_termcodes", 4)) {
     return false;
   }
@@ -506,7 +506,7 @@ bool nvim_replace_termcodes (char *str, bool from_part, bool do_lt, bool special
   return true;
 }
 
-bool nvim_command_output (char *str, char *result) {
+bool nvim_command_output (char *str, char **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_command_output", 1)) {
     return false;
   }
@@ -522,7 +522,7 @@ bool nvim_command_output (char *str, char *result) {
   return true;
 }
 
-bool nvim_eval (char *expr) {
+bool nvim_eval (char *expr, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_eval", 1)) {
     return false;
   }
@@ -532,14 +532,14 @@ bool nvim_eval (char *expr) {
   return true;
 }
 
-bool nvim_call_function (char *fname, void **args, uint32_t *size) {
+bool nvim_call_function (char *fname, void *args, uint32_t args_size, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_call_function", 2)) {
     return false;
   }
   if (!cmp_write_str(&cmp, fname, strlen(fname))) {
     return false;
   }
-  if (!cmp_write_array(&cmp, *size)) {
+  if (!cmp_write_array(&cmp, args_size)) {
     return false;
   }
   return true;
@@ -561,19 +561,19 @@ bool nvim_strwidth (char *str, int64_t *result) {
   return true;
 }
 
-bool nvim_list_runtime_paths (char **result, uint32_t *size) {
+bool nvim_list_runtime_paths (char ***result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_runtime_paths", 0)) {
     return false;
   }
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(char));
-  for (int i = 0; i < *size; i++) {
-  if (!read_string(*result + i * sizeof(char))) {
+  *result = malloc(*result_size * sizeof(char *));
+  for (int i = 0; i < *result_size; i++) {
+  if (!read_string(&(*result)[i])) {
     return false;
   }
   }
@@ -590,7 +590,7 @@ bool nvim_set_current_dir (char *dir) {
   return true;
 }
 
-bool nvim_get_current_line (char *result) {
+bool nvim_get_current_line (char **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_current_line", 0)) {
     return false;
   }
@@ -620,7 +620,7 @@ bool nvim_del_current_line () {
   return true;
 }
 
-bool nvim_get_var (char *name) {
+bool nvim_get_var (char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_var", 1)) {
     return false;
   }
@@ -653,7 +653,7 @@ bool nvim_del_var (char *name) {
   return true;
 }
 
-bool nvim_get_vvar (char *name) {
+bool nvim_get_vvar (char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_vvar", 1)) {
     return false;
   }
@@ -663,7 +663,7 @@ bool nvim_get_vvar (char *name) {
   return true;
 }
 
-bool nvim_get_option (char *name) {
+bool nvim_get_option (char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_option", 1)) {
     return false;
   }
@@ -716,21 +716,21 @@ bool nvim_err_writeln (char *str) {
   return true;
 }
 
-bool nvim_list_bufs (Buffer **result, uint32_t *size) {
+bool nvim_list_bufs (Buffer **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_bufs", 0)) {
     return false;
   }
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(Buffer));
-  for (int i = 0; i < *size; i++) {
+  *result = malloc(*result_size * sizeof(Buffer *));
+  for (int i = 0; i < *result_size; i++) {
   int8_t ext_type;
   uint32_t ext_size;
-  if (!cmp_read_ext(&cmp, &ext_type, &ext_size, *result + i * sizeof(Buffer))) {
+  if (!cmp_read_ext(&cmp, &ext_type, &ext_size, &(*result)[i])) {
     return false;
   }
   }
@@ -762,18 +762,18 @@ bool nvim_set_current_buf (Buffer buffer) {
   return true;
 }
 
-bool nvim_list_wins (Window **result, uint32_t *size) {
+bool nvim_list_wins (Window **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_wins", 0)) {
     return false;
   }
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(Window));
-  for (int i = 0; i < *size; i++) {
+  *result = malloc(*result_size * sizeof(Window *));
+  for (int i = 0; i < *result_size; i++) {
   }
   return true;
 }
@@ -798,18 +798,18 @@ bool nvim_set_current_win (Window window) {
   return true;
 }
 
-bool nvim_list_tabpages (Tabpage **result, uint32_t *size) {
+bool nvim_list_tabpages (Tabpage **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_list_tabpages", 0)) {
     return false;
   }
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(Tabpage));
-  for (int i = 0; i < *size; i++) {
+  *result = malloc(*result_size * sizeof(Tabpage *));
+  for (int i = 0; i < *result_size; i++) {
   }
   return true;
 }
@@ -870,7 +870,7 @@ bool nvim_get_color_by_name (char *name, int64_t *result) {
   return true;
 }
 
-bool nvim_get_color_map () {
+bool nvim_get_color_map (void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_get_color_map", 0)) {
     return false;
   }
@@ -884,11 +884,11 @@ bool nvim_get_api_info () {
   return true;
 }
 
-bool nvim_call_atomic (void **calls, uint32_t *size) {
+bool nvim_call_atomic (void *calls, uint32_t calls_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_call_atomic", 1)) {
     return false;
   }
-  if (!cmp_write_array(&cmp, *size)) {
+  if (!cmp_write_array(&cmp, calls_size)) {
     return false;
   }
   return true;
@@ -912,7 +912,7 @@ bool nvim_win_get_buf (Window window, Buffer *result) {
   return true;
 }
 
-bool nvim_win_get_cursor (Window window, int64_t **result, uint32_t *size) {
+bool nvim_win_get_cursor (Window window, int64_t **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_cursor", 1)) {
     return false;
   }
@@ -922,19 +922,19 @@ bool nvim_win_get_cursor (Window window, int64_t **result, uint32_t *size) {
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(int64_t));
-  for (int i = 0; i < *size; i++) {
-  if (!cmp_read_integer(&cmp, *result + i * sizeof(int64_t))) {
+  *result = malloc(*result_size * sizeof(int64_t *));
+  for (int i = 0; i < *result_size; i++) {
+  if (!cmp_read_integer(&cmp, &(*result)[i])) {
     return false;
   }
   }
   return true;
 }
 
-bool nvim_win_set_cursor (Window window, int64_t **pos, uint32_t *size) {
+bool nvim_win_set_cursor (Window window, int64_t *pos, uint32_t pos_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_set_cursor", 2)) {
     return false;
   }
@@ -1005,7 +1005,7 @@ bool nvim_win_set_width (Window window, int64_t width) {
   return true;
 }
 
-bool nvim_win_get_var (Window window, char *name) {
+bool nvim_win_get_var (Window window, char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_var", 2)) {
     return false;
   }
@@ -1047,7 +1047,7 @@ bool nvim_win_del_var (Window window, char *name) {
   return true;
 }
 
-bool nvim_win_get_option (Window window, char *name) {
+bool nvim_win_get_option (Window window, char *name, void **result) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_option", 2)) {
     return false;
   }
@@ -1076,7 +1076,7 @@ bool nvim_win_set_option (Window window, char *name, void *value) {
   return true;
 }
 
-bool nvim_win_get_position (Window window, int64_t **result, uint32_t *size) {
+bool nvim_win_get_position (Window window, int64_t **result, uint32_t *result_size) {
   if (!rpc_send(NVIM_RPC_REQUEST, "nvim_win_get_position", 1)) {
     return false;
   }
@@ -1086,12 +1086,12 @@ bool nvim_win_get_position (Window window, int64_t **result, uint32_t *size) {
   if (!read_message_headers()) {
     return false;
   }
-  if (!cmp_read_array(&cmp, size)) {
+  if (!cmp_read_array(&cmp, result_size)) {
     return false;
   }
-  *result = malloc(*size * sizeof(int64_t));
-  for (int i = 0; i < *size; i++) {
-  if (!cmp_read_integer(&cmp, *result + i * sizeof(int64_t))) {
+  *result = malloc(*result_size * sizeof(int64_t *));
+  for (int i = 0; i < *result_size; i++) {
+  if (!cmp_read_integer(&cmp, &(*result)[i])) {
     return false;
   }
   }
