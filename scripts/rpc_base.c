@@ -11,7 +11,31 @@
 #include "cmp.h"
 #include "nvim_rpc.h"
 
+cmp_ctx_t cmp;
+nvim_rpc_connection_method selected_connection_method;
 uint8_t req_id = 0;
+
+typedef enum {
+  NVIM_RPC_REQUEST,
+  NVIM_RPC_RESPONSE,
+  NVIM_RPC_NOTIFY
+} rpc_type;
+
+//typedef struct {
+//  uint8_t size;
+//  //rpc_content_type type;
+//  void *data;
+//} rpc_content;
+
+typedef struct {
+  uint8_t id;
+  rpc_type type;
+  char *title;
+  //content_type;
+  uint32_t size;
+  void *data;
+} rpc_message;
+
 
 bool stdin_reader (cmp_ctx_t *cmp, void *data, size_t limit) {
   return fread(data, 1, limit, stdin) == limit;
@@ -29,13 +53,7 @@ size_t socket_writer(cmp_ctx_t *ctx, const void *data, size_t count) {
   return write(*((int *) ctx->buf), data, count);
 }
 
-cmp_ctx_t msgpack_socket_init (void * buf) {
-  cmp_ctx_t cmp;
-  cmp_init(&cmp, buf, socket_reader, socket_writer);
-  return cmp;
-}
-
-int make_named_socket (const char *filename, const bool server) {
+int make_named_socket (const char *filename) {
   struct sockaddr_un name;
   int sock;
   size_t size;
@@ -60,34 +78,30 @@ int make_named_socket (const char *filename, const bool server) {
  */
   size = (offsetof(struct sockaddr_un, sun_path) + strlen(name.sun_path));
 
-  if (server) {
-    if (bind(sock, (struct sockaddr *) &name, size) < 0) {
-      perror("bind");
-      exit(EXIT_FAILURE);
-    }
-  } else {
-    if (connect(sock, (struct sockaddr *) &name, size) < 0) {
-      perror("connect");
-      exit(EXIT_FAILURE);
-    }
+  if (connect(sock, (struct sockaddr *) &name, size) < 0) {
+    perror("connect");
+    exit(EXIT_FAILURE);
   }
 
   return sock;
 }
 
-void rpc_init_stdio (void) {
-  cmp_init(&cmp, NULL, stdin_reader, stdout_writer); // cmp->buf should never be used
+void nvim_rpc_start (nvim_rpc_connection_method method, nvim_rpc_connection_address address) {
+  if (method == STDIN_STDOUT) {
+    cmp_init(&cmp, NULL, stdin_reader, stdout_writer); // cmp->buf should never be used
+  } else if (method == NAMED_SOCKET) {
+    int *sock = malloc(sizeof(int));
+    *sock = make_named_socket(address.filename);
+    cmp_init(&cmp, sock, socket_reader, socket_writer);
+  }
+  selected_connection_method = method;
 }
 
-void rpc_init_socket (char name[]) {
-  int *sock = malloc(sizeof(int));
-  *sock = make_named_socket(name, false);
-  cmp = msgpack_socket_init(sock);
-}
-
-void rpc_end () {
-  close(*(int *) cmp.buf);
-  free(cmp.buf);
+void nvim_rpc_end () {
+  if (selected_connection_method == NAMED_SOCKET) {
+    close(*(int *) cmp.buf);
+    free(cmp.buf);
+  }
 }
 
 bool rpc_send (rpc_type t, char method[], int num_args) {
@@ -139,23 +153,6 @@ bool read_message_headers () {
   }
 
   return true;
-}
-
-bool wait_for_response (rpc_message *msg) {
-  uint8_t num_read = 0;
-  while (true) {
-    num_read++;
-    if (!read_message(msg)) {
-      return false;
-    }
-    if (msg->id == req_id) {
-      return true;
-    }
-    if (num_read > 10) {
-      msg = NULL;
-      return false;
-    }
-  }
 }
 
 bool read_message (rpc_message *msg) {
@@ -215,6 +212,23 @@ bool read_message (rpc_message *msg) {
   }
 
   return true;
+}
+
+bool wait_for_response (rpc_message *msg) {
+  uint8_t num_read = 0;
+  while (true) {
+    num_read++;
+    if (!read_message(msg)) {
+      return false;
+    }
+    if (msg->id == req_id) {
+      return true;
+    }
+    if (num_read > 10) {
+      msg = NULL;
+      return false;
+    }
+  }
 }
 
 bool read_string (char **result) {

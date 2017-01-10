@@ -8,18 +8,20 @@ int main (int argc, char *argv[]) {
     fprintf(stderr, "Supply a file name");
     return 1;
   }
-  rpc_init_socket(argv[1]);
+  nvim_rpc_connection_address address;
+  address.filename = argv[1];
+  nvim_rpc_start(NAMED_SOCKET, address);
 
   uint32_t num_bufs;
   Buffer *bufs;
   if (!nvim_list_bufs(&bufs, &num_bufs)) {
-    rpc_end();
+    nvim_rpc_end();
     return 1;
   }
 
   if (num_bufs == 0) {
     printf("No buffers open!\n");
-    rpc_end();
+    nvim_rpc_end();
     return 1;
   }
 
@@ -44,7 +46,7 @@ int main (int argc, char *argv[]) {
   }
   if (i == num_bufs) {
     printf("Buffer %02i does not exist.\n", buf_num);
-    rpc_end();
+    nvim_rpc_end();
     return 1;
   }
 
@@ -53,7 +55,7 @@ int main (int argc, char *argv[]) {
 
   char *name;
   if (!nvim_buf_get_name(b, &name)) {
-    rpc_end();
+    nvim_rpc_end();
     return 1;
   }
 
@@ -63,7 +65,7 @@ int main (int argc, char *argv[]) {
   uint32_t num_lines;
   char **lines;
   if (!nvim_buf_get_lines(b, 0, -1, false, &lines, &num_lines)) {
-    rpc_end();
+    nvim_rpc_end();
     return 1;
   }
 
@@ -74,6 +76,6 @@ int main (int argc, char *argv[]) {
   }
   free(lines);
 
-  rpc_end();
+  nvim_rpc_end();
   return 0;
 }
