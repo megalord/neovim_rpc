@@ -1,6 +1,3 @@
-#ifndef RPC_H_
-#define RPC_H_
-
 // needed for cmp.h
 #include <stdint.h>
 #include <stdbool.h>
@@ -29,6 +26,23 @@ typedef struct {
 } rpc_message;
 
 
+typedef enum {
+  STDIN_STDOUT, // for use with nvim's jobstart(_, {rpc: v:true})
+  TCP_SOCKET, // NVIM_LISTEN_ADDRESS
+  NAMED_SOCKET, // echo v:servername
+  EMBEDDED
+} rpc_connection_method;
+
+typedef union {
+  char *filename;
+  FILE *fh;
+} rpc_connection_address;
+
+typedef struct {
+  rpc_connection_method method;
+  rpc_connection_address address;
+} rpc_connection;
+
 cmp_ctx_t cmp;
 
 void rpc_init_stdio (void);
@@ -39,5 +53,3 @@ bool wait_for_response(rpc_message *msg);
 bool read_message (rpc_message *msg);
 bool read_message_headers (void);
 bool read_string (char **str);
-
-#endif

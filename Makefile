@@ -1,5 +1,5 @@
-HEAD = src/rpc_methods.h
-SRC = test.c src/rpc.c lib/cmp.c src/socket.c
+HEAD = nvim_rpc.h
+SRC = nvim_rpc.c print_buffer.c lib/cmp.c
 PROG = print_buffer
 
 $(PROG): $(SRC) $(HEAD)
@@ -13,5 +13,5 @@ lib/cmp.h:
 lib/cmp.c: lib/cmp.h
 	curl -o lib/cmp.c https://raw.githubusercontent.com/camgunz/cmp/master/cmp.c
 
-rpc_methods:
-	gcc -iquote lib scripts/api.c -o gen_api && ./gen_api > src/rpc_methods.h && rm gen_api
+nvim_rpc: scripts/api.c scripts/rpc_base.c scripts/rpc_base.h lib/cmp.h
+	gcc -iquote lib scripts/api.c -o gen_api && ./gen_api && rm gen_api

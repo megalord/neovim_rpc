@@ -1,7 +1,7 @@
+#include <stdlib.h>
 #include <stdio.h>
 
-#include "rpc.h"
-#include "rpc_methods.h"
+#include "nvim_rpc.h"
 
 int main (int argc, char *argv[]) {
   if (argc != 2) {

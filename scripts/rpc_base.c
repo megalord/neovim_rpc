@@ -1,24 +1,17 @@
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
-// needed for cmp.h
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "cmp.h"
-#include "rpc.h"
-#include "socket.h"
+#include "nvim_rpc.h"
 
 uint8_t req_id = 0;
-
-enum rpc_connection_method {
-  STDIN_STDOUT, // for use with nvim's jobstart(_, {rpc: v:true})
-  TCP_SOCKET, // NVIM_LISTEN_ADDRESS
-  NAMED_SOCKET, // echo v:servername
-  EMBEDDED
-};
 
 bool stdin_reader (cmp_ctx_t *cmp, void *data, size_t limit) {
   return fread(data, 1, limit, stdin) == limit;
@@ -26,6 +19,60 @@ bool stdin_reader (cmp_ctx_t *cmp, void *data, size_t limit) {
 
 size_t stdout_writer (cmp_ctx_t *cmp, const void *data, size_t count) {
   return fwrite(data, 1, count, stdout);
+}
+
+bool socket_reader(cmp_ctx_t *ctx, void *data, size_t limit) {
+  return read(*((int *) ctx->buf), data, limit) == limit;
+}
+
+size_t socket_writer(cmp_ctx_t *ctx, const void *data, size_t count) {
+  return write(*((int *) ctx->buf), data, count);
+}
+
+cmp_ctx_t msgpack_socket_init (void * buf) {
+  cmp_ctx_t cmp;
+  cmp_init(&cmp, buf, socket_reader, socket_writer);
+  return cmp;
+}
+
+int make_named_socket (const char *filename, const bool server) {
+  struct sockaddr_un name;
+  int sock;
+  size_t size;
+
+  /* Create the socket. */
+  sock = socket(PF_LOCAL, SOCK_STREAM, 0);
+  if (sock < 0) {
+    perror("socket");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Bind a name to the socket. */
+  name.sun_family = AF_LOCAL;
+  strncpy(name.sun_path, filename, sizeof (name.sun_path));
+  name.sun_path[sizeof (name.sun_path) - 1] = '\0';
+
+  /* The size of the address is
+     the offset of the start of the filename,
+     plus its length (not including the terminating null byte).
+     Alternatively you can just do:
+     size = SUN_LEN (&name);
+ */
+  size = (offsetof(struct sockaddr_un, sun_path) + strlen(name.sun_path));
+
+  if (server) {
+    if (bind(sock, (struct sockaddr *) &name, size) < 0) {
+      perror("bind");
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    if (connect(sock, (struct sockaddr *) &name, size) < 0) {
+      perror("connect");
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  return sock;
 }
 
 void rpc_init_stdio (void) {
