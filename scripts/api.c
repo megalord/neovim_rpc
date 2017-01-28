@@ -112,7 +112,7 @@ void print_result_collector (param_t *p) {
     fprintf(out_c_file, "  for (int i = 0; i < *%s_size; i++) {\n", p->name);
     char tmp[40];
     strcpy(tmp, result);
-    sprintf(result, "&(*%s)[i]", tmp);
+    sprintf(result, "(*%s) + i", tmp);
   }
   if (strcmp(p->type, "char") == 0) {
     fprintf(out_c_file, "  if (!read_string(%s)) {\n    return false;\n  }\n", result);
@@ -150,8 +150,15 @@ void print_function (func_t *fn) {
   fprintf(out_c_file, ") {\n");
   fprintf(out_c_file, "  if (!rpc_send(NVIM_RPC_REQUEST, \"%s\", %i)) {\n    return false;\n  }\n", fn->name, fn->num_params);
   for (int i = 0; i < fn->num_params; i++) {
-    fprintf(out_c_file, "  if (!%s) {\n    return false;\n  }\n", fn->params[i].cmp_fn);
-    // TODO: if (fn->params[i].is_arr) {
+    if (fn->params[i].is_arr) {
+      fprintf(out_c_file, "  if (!cmp_write_array(&cmp, %s_size)) {\n", fn->params[i].name);
+      fprintf(out_c_file, "    return false;\n  }\n");
+      fprintf(out_c_file, "  for (int i = 0; i < %s_size; i++) {\n", fn->params[i].name);
+      fprintf(out_c_file, "    if (!%s) {\n      return false;\n    }\n", fn->params[i].cmp_fn);
+      fprintf(out_c_file, "  }\n");
+    } else {
+      fprintf(out_c_file, "  if (!%s) {\n    return false;\n  }\n", fn->params[i].cmp_fn);
+    }
   }
   if (strcmp(fn->ret.type, "void") != 0) { // TODO: will void still send response?
     print_result_collector(&fn->ret);
@@ -178,7 +185,6 @@ void translate_param (param_t *param) {
   } else if (strcmp(type, "Array") == 0) {
     strcpy(param->type, "void");
     param->is_arr = true;
-    snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, %s_size)", param->name);
   } else if (strncmp(type, "ArrayOf", 7) == 0) {
     // e.g. ArrayOf(Integer, 2)
     char sub_type[20];
@@ -199,13 +205,14 @@ void translate_param (param_t *param) {
     snprintf(param->cmp_fn, 80, "cmp_write_array(&cmp, %s)", size);
 
     // Translate the type of the elements
-    param_t p;
-    strcpy(p.name, "tmp");
-    strcpy(p.type, param->type);
-    p.is_ptr = false;
-    translate_param(&p);
-    strcpy(param->type, p.type);
-    param->is_ptr = p.is_ptr;
+    // The cmp_fn needs to access the element, hence the name copy.
+    char name[20];
+    strcpy(name, param->name);
+    snprintf(param->name, 20, "%s[i]", name);
+
+    translate_param(param);
+
+    strcpy(param->name, name);
   } else if (strcmp(type, "Buffer") == 0 || strcmp(type, "Tabpage") == 0 || strcmp(type, "Window") == 0) {
     snprintf(param->cmp_fn, 80, "cmp_write_ext(&cmp, NVIM_EXT_%s, sizeof(%s), &%s)", type, param->name, param->name);
   } else {
@@ -404,7 +411,7 @@ void read_map (cmp_ctx_t *cmp, cmp_object_t cmp_obj) {
   }
 
   for (int i = 0; i < num_fns; i++) {
-    if (!fns[i].deprecated) {
+    if (!fns[i].deprecated && strcmp(fns[i].name, "nvim_call_function") != 0 && strcmp(fns[i].name, "nvim_call_atomic") != 0) {
       print_function(&fns[i]);
     }
     free(fns[i].params);
