@@ -114,7 +114,9 @@ void print_result_collector (param_t *p) {
     strcpy(tmp, result);
     sprintf(result, "(*%s) + i", tmp);
   }
-  if (strcmp(p->type, "char") == 0) {
+  if (strcmp(p->type, "void") == 0) {
+    fprintf(out_c_file, "  if (!cmp_read_nil(&cmp)) {\n    return false;\n  }\n");
+  } else if (strcmp(p->type, "char") == 0) {
     fprintf(out_c_file, "  if (!read_string(%s)) {\n    return false;\n  }\n", result);
   } else if (strcmp(p->type, "int64_t") == 0) {
     fprintf(out_c_file, "  if (!cmp_read_integer(&cmp, %s)) {\n    return false;\n  }\n", result);
@@ -160,11 +162,7 @@ void print_function (func_t *fn) {
       fprintf(out_c_file, "  if (!%s) {\n    return false;\n  }\n", fn->params[i].cmp_fn);
     }
   }
-  if (strcmp(fn->ret.type, "void") != 0) { // TODO: will void still send response?
-    print_result_collector(&fn->ret);
-  } else {
-    fprintf(out_c_file, "  return true;\n");
-  }
+  print_result_collector(&fn->ret);
   fprintf(out_c_file, "}\n\n");
 }
 
@@ -289,9 +287,6 @@ void read_function (cmp_ctx_t *cmp, func_t *fn) {
   }
 }
 
-//ArrayOf(Integer, 2) nvim_win_get_position (Window window) {
-//nvim_win_get_position (Window window, uint8_t *width, uint8_t *height)
-
 void read_functions (cmp_ctx_t *cmp, func_t **fns, uint32_t *num_funcs) {
   cmp_read_array(cmp, num_funcs);
   *fns = malloc(*num_funcs * sizeof(func_t));
@@ -331,7 +326,6 @@ void read_error_types (cmp_ctx_t *cmp) {
     if (!cmp_read_pfix(cmp, &id)) {
       error_and_exit(cmp_strerror(cmp));
     }
-    //printf("typedef %s = %u;\n", key, id);
   }
 }
 
@@ -411,7 +405,8 @@ void read_map (cmp_ctx_t *cmp, cmp_object_t cmp_obj) {
   }
 
   for (int i = 0; i < num_fns; i++) {
-    if (!fns[i].deprecated && strcmp(fns[i].name, "nvim_call_function") != 0 && strcmp(fns[i].name, "nvim_call_atomic") != 0) {
+    if (!fns[i].deprecated && strcmp(fns[i].name, "nvim_call_function") != 0
+        && strcmp(fns[i].name, "nvim_call_atomic") != 0 && strcmp(fns[i].name, "nvim_get_api_info") != 0) {
       print_function(&fns[i]);
     }
     free(fns[i].params);

@@ -45,6 +45,14 @@ size_t stdout_writer (cmp_ctx_t *cmp, const void *data, size_t count) {
   return fwrite(data, 1, count, stdout);
 }
 
+bool file_reader (cmp_ctx_t *cmp, void *data, size_t limit) {
+  return fread(data, 1, limit, (FILE *) cmp->buf) == limit;
+}
+
+size_t file_writer (cmp_ctx_t *cmp, const void *data, size_t count) {
+  return fwrite(data, 1, count, (FILE *) cmp->buf);
+}
+
 bool socket_reader(cmp_ctx_t *ctx, void *data, size_t limit) {
   return read(*((int *) ctx->buf), data, limit) == limit;
 }
@@ -87,12 +95,21 @@ int make_named_socket (const char *filename) {
 }
 
 void nvim_rpc_start (nvim_rpc_connection_method method, nvim_rpc_connection_address address) {
-  if (method == STDIN_STDOUT) {
-    cmp_init(&cmp, NULL, stdin_reader, stdout_writer); // cmp->buf should never be used
-  } else if (method == NAMED_SOCKET) {
-    int *sock = malloc(sizeof(int));
-    *sock = make_named_socket(address.filename);
-    cmp_init(&cmp, sock, socket_reader, socket_writer);
+  switch (method) {
+    case STDIN_STDOUT:
+      cmp_init(&cmp, NULL, stdin_reader, stdout_writer); // cmp->buf should never be used
+      break;
+    case NAMED_SOCKET: {
+      int *sock = malloc(sizeof(int));
+      *sock = make_named_socket(address.filename);
+      cmp_init(&cmp, sock, socket_reader, socket_writer);
+      break;
+    }
+    case EMBEDDED: {
+      FILE *process_io = popen("nvim -u NONE --embed", "r+");
+      cmp_init(&cmp, process_io, file_reader, file_writer);
+      break;
+    }
   }
   selected_connection_method = method;
 }
@@ -104,7 +121,12 @@ void nvim_rpc_end () {
   }
 }
 
+const char* nvim_rpc_error () {
+  return cmp_strerror(&cmp);
+}
+
 bool rpc_send (rpc_type t, char method[], int num_args) {
+  req_id++;
   if (!cmp_write_array(&cmp, 4)) {
     return false;
   }
