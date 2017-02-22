@@ -12,17 +12,13 @@ void test_set_lines () {
   uint32_t num_read_lines;
   char **read_lines;
 
-  if (!nvim_buf_set_lines(0, 0, -1, false, lines, num_lines)) {
-    fail("nvim_buf_set_lines failed");
-  }
+  assert_true(nvim_buf_set_lines(0, 0, -1, false, lines, num_lines));
 
-  if (!nvim_buf_get_lines(0, 0, -1, false, &read_lines, &num_read_lines)) {
-    fail("nvim_buf_get_lines failed");
-  }
+  assert_true(nvim_buf_get_lines(0, 0, -1, false, &read_lines, &num_read_lines));
 
-  assertEqual(num_lines, num_read_lines, "%u %u");
+  assert_equal(num_lines, num_read_lines, "%u %u");
   for (int i = 0; i < num_lines; i++) {
-    assertEqual(lines[i], read_lines[i], "%s %s");
+    assert_equal(lines[i], read_lines[i], "%s %s");
     free(read_lines[i]);
   }
   pass();
@@ -39,11 +35,11 @@ void fixture_tests () {
 }
 
 void test_true_false () {
-  assertEqual(true, false, "%d is not %d");
+  assert_true(false);
 }
 
 void test_string_equals () {
-  assertEqualCust(strcmp("a", "b") == 0, "a", "b", "%s is not %s");
+  assert_equal_str("a", "b");
 }
 
 void basic_tests () {
@@ -56,5 +52,5 @@ int main () {
   init_test_suite();
   describe("basics", basic_tests);
   describe("fixture tests", fixture_tests);
-  return 0;
+  return end_test_suite();
 }
